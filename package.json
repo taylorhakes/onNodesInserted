@@ -1,6 +1,6 @@
 {
   "name": "onnodesinserted",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "description": "Listen to node inserted events",
   "main": "onNodesInserted.js",
   "directories": {
