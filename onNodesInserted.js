@@ -132,7 +132,7 @@
             })();
 
             return listen(selector, function(els) {
-                insertions.concat(els);
+                insertions = insertions.concat(els);
                 sumUp();
             });
         }
