@@ -52,9 +52,11 @@
 
                 var eventHandler = function(event) {
                     if (event.animationName === animationName || event[animationstring] === animationName) {
-                        var diff = getNewNodes(currentEls, document.querySelectorAll(selector));
+                        var newNodes = document.querySelectorAll(selector);
+                        var diff = getNewNodes(currentEls, newNodes);
                         if (diff.length) {
                             callback(diff);
+                            currentEls = newNodes;
                         }
                     }
                 };
@@ -129,8 +131,8 @@
                 };
             })();
 
-            return listen(selector, function(el) {
-                insertions.push(el);
+            return listen(selector, function(els) {
+                insertions.concat(els);
                 sumUp();
             });
         }
