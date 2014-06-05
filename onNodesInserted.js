@@ -2,30 +2,29 @@
     "use strict";
     var onNodesInserted = (function() {
 
-        var sequence = 100,
-            isAnimationSupported = false,
-            animationstring = 'animationName',
-            keyframeprefix = '',
-            domPrefixes = 'Webkit Moz O ms Khtml'.split(' '),
-            pfx = '',
-            pollTime = 400,
-            elm = document.createElement('div');
-
-        if (elm.style.animationName) {
-            isAnimationSupported = true;
+        // rAF polyfill
+        var lastTime = 0,
+            vendors = ['ms', 'moz', 'webkit', 'o'];
+        for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+            window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+            window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame']
+            || window[vendors[x]+'CancelRequestAnimationFrame'];
         }
-
-        if (isAnimationSupported === false) {
-            for (var i = 0; i < domPrefixes.length; i++) {
-                if (elm.style[domPrefixes[i] + 'AnimationName'] !== undefined) {
-                    pfx = domPrefixes[i];
-                    animationstring = pfx + 'AnimationName';
-                    keyframeprefix = '-' + pfx.toLowerCase() + '-';
-                    isAnimationSupported = true;
-                    break;
-                }
+        if (!window.requestAnimationFrame) {
+            window.requestAnimationFrame = function(callback, element) {
+                var currTime = new Date().getTime();
+                var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+                var id = window.setTimeout(function() { callback(currTime + timeToCall); },
+                timeToCall);
+                lastTime = currTime + timeToCall;
+                return id;
+            };
+        }
+        if (!window.cancelAnimationFrame) {
+            window.cancelAnimationFrame = function(id) {
+                clearTimeout(id);
             }
-        }
+        };
 
         function getNewNodes(currentEls, newEls) {
             var diff = [], found;
@@ -44,77 +43,30 @@
             return diff;
         }
 
-        var listen;
-        if (isAnimationSupported) {
-            listen = function(selector, callback) {
-                var currentEls = document.querySelectorAll(selector);
-                var styleAnimation, animationName = 'insQ_' + (sequence++);
+        var listen = function(selector, callback) {
+            var currentEls = document.querySelectorAll(selector),
+                frame;
 
-                var eventHandler = function(event) {
-                    if (event.animationName === animationName || event[animationstring] === animationName) {
-                        var newNodes = document.querySelectorAll(selector);
-                        var diff = getNewNodes(currentEls, newNodes);
-                        if (diff.length) {
-                            callback(diff);
-                            currentEls = newNodes;
-                        }
-                    }
+            var eventHandler = function() {
+                var newNodes = document.querySelectorAll(selector);
+                var diff = getNewNodes(currentEls, newNodes);
+                if (diff.length) {
+                    callback(diff);
+                    currentEls = newNodes;
                 };
+                frame = window.requestAnimationFrame(eventHandler);
+            };
 
-                styleAnimation = document.createElement('style');
-                styleAnimation.innerHTML = '@' + keyframeprefix + 'keyframes ' + animationName +
-                    ' {  from {  outline: 1px solid transparent  } to {  outline: 0px solid transparent }  }' +
-                    "\n" + selector + ' { animation-duration: 0.001s; animation-name: ' + animationName + '; ' +
-                    keyframeprefix + 'animation-duration: 0.001s; ' + keyframeprefix + 'animation-name: ' +
-                    animationName + '; ' +
-                    ' } ';
+            setTimeout(function() {
+                eventHandler();
+            }, 50); //starts listening later to skip elements found on startup. this might need tweaking
 
-                document.head.appendChild(styleAnimation);
-
-                var bindAnimationLater = setTimeout(function() {
-                    document.addEventListener('animationstart', eventHandler, false);
-                    document.addEventListener('MSAnimationStart', eventHandler, false);
-                    document.addEventListener('webkitAnimationStart', eventHandler, false);
-                    //event support is not consistent with DOM prefixes
-                }, 50); //starts listening later to skip elements found on startup. this might need tweaking
-
-                return {
-                    destroy: function() {
-                        clearTimeout(bindAnimationLater);
-                        if (styleAnimation) {
-                            document.head.removeChild(styleAnimation);
-                            styleAnimation = null;
-                        }
-                        document.removeEventListener('animationstart', eventHandler);
-                        document.removeEventListener('MSAnimationStart', eventHandler);
-                        document.removeEventListener('webkitAnimationStart', eventHandler);
-                    }
-                };
-            }
-        } else {
-            listen = function(selector, callback) {
-                var currentEls = document.querySelectorAll(selector), to;
-
-                function intervalFn() {
-                    var newEls = document.querySelectorAll(selector);
-
-                    var diff = getNewNodes(currentEls, currentEls);
-                    if (diff.length) {
-                        callback(diff);
-                    }
-
-                    currentEls = newEls;
-                    to = setTimeout(intervalFn, pollTime)
+            return {
+                destroy: function() {
+                    window.cancelAnimationFrame(frame);
                 }
-
-                to = setTimeout(intervalFn, pollTime);
-                return {
-                    destroy: function() {
-                        clearTimeout(to);
-                    }
-                }
-            }
-        }
+            };
+        };
 
         // aggregates multiple insertion events into a common parent
         function catchInsertions(selector, callback) {
@@ -136,10 +88,6 @@
                 sumUp();
             });
         }
-
-        catchInsertions.setPollTime = function(time) {
-            pollTime = time;
-        };
 
         return catchInsertions;
     })();
