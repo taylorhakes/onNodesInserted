@@ -47,12 +47,12 @@
         var listen;
         if (isAnimationSupported) {
             listen = function(selector, callback) {
-                var currentEls = document.querySelectorAll(selector);
+                var currentEls = copyArray(document.querySelectorAll(selector));
                 var styleAnimation, animationName = 'insQ_' + (sequence++);
 
                 var eventHandler = function(event) {
                     if (event.animationName === animationName || event[animationstring] === animationName) {
-                        var newNodes = document.querySelectorAll(selector);
+                        var newNodes = copyArray(document.querySelectorAll(selector));
                         var diff = getNewNodes(currentEls, newNodes);
                         if (diff.length) {
                             callback(diff);
@@ -93,12 +93,12 @@
             }
         } else {
             listen = function(selector, callback) {
-                var currentEls = document.querySelectorAll(selector), to;
+                var currentEls = copyArray(document.querySelectorAll(selector)), to;
 
                 function intervalFn() {
-                    var newEls = document.querySelectorAll(selector);
+                    var newEls = copyArray(document.querySelectorAll(selector));
 
-                    var diff = getNewNodes(currentEls, currentEls);
+                    var diff = getNewNodes(currentEls, newEls);
                     if (diff.length) {
                         callback(diff);
                     }
@@ -135,6 +135,14 @@
                 insertions = insertions.concat(els);
                 sumUp();
             });
+        }
+
+        function copyArray(arr) {
+            var newArr = [];
+            for (var i = 0, len = arr.length; i < len; i++) {
+                newArr.push(arr[i]);
+            }
+            return newArr;
         }
 
         catchInsertions.setPollTime = function(time) {
